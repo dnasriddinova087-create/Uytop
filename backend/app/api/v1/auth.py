@@ -51,33 +51,43 @@ def register(request_data: RegisterRequest, db: Session = Depends(get_db)):
         )
     
     # Create user
-    new_user = User(
-        first_name=request_data.first_name.strip(),
-        last_name=request_data.last_name.strip(),
-        phone=request_data.phone.strip(),
-        email=request_data.email.strip() if request_data.email else None,
-        hashed_password=get_password_hash(request_data.password),
-        role=role_normalized,
-        is_active=True,
-        is_verified=False
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    try:
+        new_user = User(
+            first_name=request_data.first_name.strip(),
+            last_name=request_data.last_name.strip(),
+            phone=request_data.phone.strip(),
+            email=request_data.email.strip() if request_data.email else None,
+            hashed_password=get_password_hash(request_data.password),
+            role=role_normalized,
+            is_active=True,
+            is_verified=False
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Foydalanuvchini bazaga saqlashda xatolik: {str(e)}"
+        )
     
     # Generate tokens
     access_token = create_access_token(data={"sub": str(new_user.id), "role": new_user.role})
     refresh_token = create_refresh_token(data={"sub": str(new_user.id)})
     
-    # Audit log
-    log_audit(
-        db,
-        action="USER_REGISTER",
-        entity_type="user",
-        user_id=new_user.id,
-        entity_id=new_user.id,
-        details={"role": new_user.role, "phone": new_user.phone}
-    )
+    # Audit log (non-blocking)
+    try:
+        log_audit(
+            db,
+            action="USER_REGISTER",
+            entity_type="user",
+            user_id=new_user.id,
+            entity_id=new_user.id,
+            details={"role": new_user.role, "phone": new_user.phone}
+        )
+    except Exception:
+        pass
     
     return TokenResponse(
         access_token=access_token,
