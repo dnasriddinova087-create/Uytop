@@ -1,0 +1,11 @@
+{
+  "name": "uytop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "UyTop - O'zbekistonda uylarni ijaraga berish va olish platformasi",
+  "scripts": {
+    "build": "npm --prefix web run build",
+    "vercel-build": "npm --prefix web install && npm --prefix web run build",
+    "start": "npm --prefix web run preview"
+  }
+}
