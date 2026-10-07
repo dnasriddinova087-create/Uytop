@@ -9,14 +9,14 @@ import {
   LocationItem
 } from '../types';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-export const BASE_SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:8000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:8000/api/v1');
+export const BASE_SERVER_URL = import.meta.env.VITE_SERVER_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000');
 
 export function getFullImageUrl(url?: string | null): string {
   if (!url) return 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  if (url.startsWith('/')) return `${BASE_SERVER_URL}${url}`;
-  return `${BASE_SERVER_URL}/${url}`;
+  const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+  return BASE_SERVER_URL ? `${BASE_SERVER_URL}${cleanUrl}` : cleanUrl;
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
