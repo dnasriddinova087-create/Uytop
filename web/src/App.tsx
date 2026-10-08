@@ -25,7 +25,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   const { user, loading, isAuthenticated } = useAuth();
 
   if (loading) return null;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    const isAdminRoute = allowedRoles && allowedRoles.length === 1 && allowedRoles.includes('admin');
+    return <Navigate to={isAdminRoute ? "/login?role=admin" : "/login"} replace />;
+  }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;

@@ -47,6 +47,7 @@ export const Footer: React.FC = () => {
               <li><Link to="/broker/add-property">Makler: Uy qo'shish</Link></li>
               <li><Link to="/client">Mijoz kabineti</Link></li>
               <li><Link to="/favorites">Saqlangan uylar</Link></li>
+              <li><Link to="/login?role=admin" style={{ color: '#34D399', fontWeight: 700 }}>🛡️ Admin Panel (Nasriddinova Dilfuza)</Link></li>
             </ul>
           </div>
 
