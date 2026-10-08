@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Send, User as UserIcon, MessageSquare, Building } from 'lucide-react';
 import { Conversation, Message } from '../types';
-import { api } from '../services/api';
+import { api, getFullImageUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner } from '../components/LoadingSkeleton';
 
@@ -120,17 +120,23 @@ export const ChatPage: React.FC = () => {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{
-                      width: '42px',
-                      height: '42px',
+                      width: '44px',
+                      height: '44px',
                       borderRadius: '50%',
+                      overflow: 'hidden',
                       background: '#ECFDF5',
                       color: '#0F382A',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontWeight: 700,
+                      flexShrink: 0,
                     }}>
-                      {other?.first_name ? other.first_name[0] : 'U'}
+                      {other?.avatar_url ? (
+                        <img src={getFullImageUrl(other.avatar_url)} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        other?.first_name ? other.first_name[0] : 'U'
+                      )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -162,12 +168,32 @@ export const ChatPage: React.FC = () => {
                 alignItems: 'center',
                 background: '#FFFFFF',
               }}>
-                <div>
-                  <div style={{ fontWeight: 800, color: '#0F382A', fontSize: '1.05rem' }}>
-                    {otherParticipant?.first_name} {otherParticipant?.last_name}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    overflow: 'hidden',
+                    background: '#ECFDF5',
+                    color: '#0F382A',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                  }}>
+                    {otherParticipant?.avatar_url ? (
+                      <img src={getFullImageUrl(otherParticipant.avatar_url)} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      otherParticipant?.first_name ? otherParticipant.first_name[0] : 'U'
+                    )}
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>
-                    {otherParticipant?.phone}
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#0F382A', fontSize: '1.05rem' }}>
+                      {otherParticipant?.first_name} {otherParticipant?.last_name}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>
+                      {otherParticipant?.phone}
+                    </div>
                   </div>
                 </div>
 

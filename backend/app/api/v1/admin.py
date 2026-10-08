@@ -6,8 +6,10 @@ from app.models.user import User, UserRole
 from app.models.property import Property, PropertyStatus
 from app.models.report import Report
 from app.models.audit import AuditLog
+from app.models.chat import Conversation, Message
 from app.schemas.user import UserResponse
 from app.schemas.property import PropertyResponse
+from app.schemas.chat import ConversationResponse, MessageResponse
 from app.schemas.admin import (
     AdminDashboardStats,
     AdminUserUpdate,
@@ -18,6 +20,7 @@ from app.schemas.admin import (
 from app.schemas.report import ReportResponse, ReportUpdate
 from app.api.deps import require_admin
 from app.api.v1.properties import _format_property_response
+from app.api.v1.conversations import _format_conversation
 from app.services.audit import log_audit
 
 router = APIRouter(prefix="/admin", tags=["Admin Management"])
@@ -59,6 +62,7 @@ def get_all_users(
     role: Optional[str] = None,
     is_active: Optional[bool] = None,
     is_verified: Optional[bool] = None,
+    sort_by: Optional[str] = Query("newest", pattern="^(newest|oldest|name_asc|name_desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     admin: User = Depends(require_admin),
@@ -81,7 +85,16 @@ def get_all_users(
     if is_verified is not None:
         query = query.filter(User.is_verified == is_verified)
 
-    users = query.order_by(User.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    if sort_by == "oldest":
+        query = query.order_by(User.created_at.asc())
+    elif sort_by == "name_asc":
+        query = query.order_by(User.first_name.asc(), User.last_name.asc())
+    elif sort_by == "name_desc":
+        query = query.order_by(User.first_name.desc(), User.last_name.desc())
+    else:
+        query = query.order_by(User.created_at.desc())
+
+    users = query.offset((page - 1) * page_size).limit(page_size).all()
     return [UserResponse.model_validate(u) for u in users]
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
@@ -279,3 +292,55 @@ def get_audit_logs(
         )
 
     return AuditLogListResponse(items=resp_items, total=total)
+
+@router.delete("/properties/{property_id}")
+def admin_delete_property(
+    property_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    prop = db.query(Property).filter(Property.id == property_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Uy e'loni topilmadi")
+    db.delete(prop)
+    db.commit()
+    log_audit(db, "ADMIN_DELETE_PROPERTY", "property", admin.id, property_id)
+    return {"message": "E'lon admin tomonidan o'chirildi"}
+
+@router.get("/conversations", response_model=List[ConversationResponse])
+def get_admin_conversations(
+    search: Optional[str] = None,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Conversation).options(
+        joinedload(Conversation.client),
+        joinedload(Conversation.broker),
+        joinedload(Conversation.property).joinedload(Property.images),
+        joinedload(Conversation.property).joinedload(Property.amenity),
+        joinedload(Conversation.messages)
+    )
+    convs = query.order_by(Conversation.updated_at.desc()).all()
+    results = [_format_conversation(c, admin.id) for c in convs]
+    if search:
+        s = search.lower().strip()
+        results = [
+            r for r in results
+            if (r.client and (s in r.client.first_name.lower() or s in r.client.last_name.lower() or s in r.client.phone))
+            or (r.broker and (s in r.broker.first_name.lower() or s in r.broker.last_name.lower() or s in r.broker.phone))
+            or (r.property and s in r.property.title.lower())
+        ]
+    return results
+
+@router.get("/conversations/{conversation_id}/messages", response_model=List[MessageResponse])
+def get_admin_conversation_messages(
+    conversation_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Suhbat topilmadi")
+    messages = db.query(Message).filter(Message.conversation_id == conversation_id).order_by(Message.created_at.asc()).all()
+    return [MessageResponse.model_validate(m) for m in messages]
+

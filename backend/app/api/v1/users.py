@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserResponse, UserUpdateMe, ChangePasswordRequest
 from app.api.deps import get_current_user
 from app.services.auth import get_password_hash, verify_password
+from app.services.file_upload import save_uploaded_image
 from app.services.audit import log_audit
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -23,15 +24,26 @@ def update_me(
         current_user.first_name = update_data.first_name.strip()
     if update_data.last_name is not None:
         current_user.last_name = update_data.last_name.strip()
+    if update_data.phone is not None:
+        clean_phone = update_data.phone.strip()
+        if clean_phone != current_user.phone:
+            existing_phone = db.query(User).filter(User.phone == clean_phone, User.id != current_user.id).first()
+            if existing_phone:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Ushbu telefon raqami allaqachon boshqa akkauntga biriktirilgan"
+                )
+            current_user.phone = clean_phone
     if update_data.email is not None:
-        # Check if email is already taken by another user
-        existing = db.query(User).filter(User.email == update_data.email, User.id != current_user.id).first()
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Ushbu email boshqa foydalanuvchi tomonidan band qilingan"
-            )
-        current_user.email = update_data.email
+        clean_email = update_data.email.strip() if update_data.email else None
+        if clean_email:
+            existing = db.query(User).filter(User.email == clean_email, User.id != current_user.id).first()
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Ushbu email boshqa foydalanuvchi tomonidan band qilingan"
+                )
+        current_user.email = clean_email
     if update_data.avatar_url is not None:
         current_user.avatar_url = update_data.avatar_url
 
@@ -46,6 +58,27 @@ def update_me(
         entity_id=current_user.id
     )
     
+    return current_user
+
+@router.post("/me/avatar", response_model=UserResponse)
+def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    avatar_url = save_uploaded_image(file)
+    current_user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(current_user)
+
+    log_audit(
+        db,
+        action="USER_UPDATE_AVATAR",
+        entity_type="user",
+        user_id=current_user.id,
+        entity_id=current_user.id
+    )
+
     return current_user
 
 @router.post("/me/change-password")

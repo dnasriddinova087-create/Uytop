@@ -83,6 +83,7 @@ def _format_property_response(prop: Property, current_user_id: Optional[int] = N
 def get_properties(
     page: int = Query(1, ge=1),
     page_size: int = Query(12, ge=1, le=100),
+    q: Optional[str] = None,
     region: Optional[str] = None,
     city_district: Optional[str] = None,
     mahalla: Optional[str] = None,
@@ -124,6 +125,17 @@ def get_properties(
 
     if owner_id:
         query = query.filter(Property.owner_id == owner_id)
+
+    if q:
+        q_term = f"%{q.strip()}%"
+        query = query.filter(
+            (Property.title.ilike(q_term)) |
+            (Property.description.ilike(q_term)) |
+            (Property.region.ilike(q_term)) |
+            (Property.city_district.ilike(q_term)) |
+            (Property.mahalla.ilike(q_term)) |
+            (Property.address.ilike(q_term))
+        )
 
     if region:
         query = query.filter(Property.region.ilike(f"%{region}%"))
@@ -412,8 +424,9 @@ def reopen_property(
     return _format_property_response(prop, current_user.id)
 
 @router.delete("/{property_id}")
-def archive_property(
+def archive_or_delete_property(
     property_id: int,
+    permanent: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -423,11 +436,16 @@ def archive_property(
     if prop.owner_id != current_user.id and current_user.role != UserRole.ADMIN.value:
         raise HTTPException(status_code=403, detail="Ruxsat berilmagan")
     
-    prop.status = PropertyStatus.ARCHIVED.value
-    db.commit()
-    
-    log_audit(db, "PROPERTY_ARCHIVE", "property", current_user.id, prop.id)
-    return {"message": "E'lon arxivlandi"}
+    if permanent or current_user.role == UserRole.ADMIN.value:
+        db.delete(prop)
+        db.commit()
+        log_audit(db, "PROPERTY_DELETE", "property", current_user.id, property_id)
+        return {"message": "E'lon tizimdan butunlay o'chirildi"}
+    else:
+        prop.status = PropertyStatus.ARCHIVED.value
+        db.commit()
+        log_audit(db, "PROPERTY_ARCHIVE", "property", current_user.id, prop.id)
+        return {"message": "E'lon arxivlandi"}
 
 @router.post("/{property_id}/images", response_model=List[PropertyImageResponse])
 def upload_property_images(

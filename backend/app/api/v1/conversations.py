@@ -32,6 +32,11 @@ def _format_conversation(conv: Conversation, current_user_id: int) -> Conversati
             created_at=last_msg.created_at
         )
 
+    prop_schema = None
+    if conv.property:
+        from app.api.v1.properties import _format_property_response
+        prop_schema = _format_property_response(conv.property, current_user_id)
+
     return ConversationResponse(
         id=conv.id,
         client_id=conv.client_id,
@@ -39,6 +44,7 @@ def _format_conversation(conv: Conversation, current_user_id: int) -> Conversati
         property_id=conv.property_id,
         client=UserResponse.model_validate(conv.client) if conv.client else None,
         broker=UserResponse.model_validate(conv.broker) if conv.broker else None,
+        property=prop_schema,
         last_message=last_msg_schema,
         unread_count=unread,
         created_at=conv.created_at,
@@ -50,13 +56,20 @@ def get_conversations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    convs = db.query(Conversation).filter(
-        (Conversation.client_id == current_user.id) | (Conversation.broker_id == current_user.id)
-    ).options(
+    query = db.query(Conversation).options(
         joinedload(Conversation.client),
         joinedload(Conversation.broker),
+        joinedload(Conversation.property).joinedload(Property.images),
+        joinedload(Conversation.property).joinedload(Property.amenity),
         joinedload(Conversation.messages)
-    ).order_by(Conversation.updated_at.desc()).all()
+    )
+
+    if current_user.role == "admin":
+        convs = query.order_by(Conversation.updated_at.desc()).all()
+    else:
+        convs = query.filter(
+            (Conversation.client_id == current_user.id) | (Conversation.broker_id == current_user.id)
+        ).order_by(Conversation.updated_at.desc()).all()
 
     return [_format_conversation(c, current_user.id) for c in convs]
 

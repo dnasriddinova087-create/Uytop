@@ -52,7 +52,7 @@ export const RegisterPage: React.FC = () => {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone: phone.trim(),
-        email: email.trim() ? email.trim() : null,
+        email: role === 'makler' && email.trim() ? email.trim() : null,
         role,
         password,
         password_confirm: passwordConfirm,
@@ -205,17 +205,22 @@ export const RegisterPage: React.FC = () => {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="reg-email">Email manzili (ixtiyoriy):</label>
-            <input
-              type="email"
-              id="reg-email"
-              className="form-input"
-              placeholder="example@mail.uz"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+          {role === 'makler' && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="reg-email">Email manzili (Makler uchun):</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="email"
+                  id="reg-email"
+                  className="form-input"
+                  placeholder="makler@uytop.uz"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <Mail size={18} color="#9CA3AF" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label" htmlFor="reg-password">Parol (kamida 6 belgi):</label>

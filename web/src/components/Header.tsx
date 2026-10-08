@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Home, Heart, MessageSquare, PlusCircle, User, Shield, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getFullImageUrl } from '../services/api';
 
 export const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -62,19 +63,31 @@ export const Header: React.FC = () => {
 
               {/* Role-based dashboard button */}
               {user.role === 'admin' ? (
-                <Link to="/admin" className="btn btn-outline" id="btn-admin-nav">
-                  <Shield size={18} color="#0F382A" />
-                  <span>Admin Panel</span>
+                <Link to="/admin" className="btn btn-outline" id="btn-admin-nav" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {user.avatar_url ? (
+                    <img src={getFullImageUrl(user.avatar_url)} alt="Admin" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <Shield size={18} color="#0F382A" />
+                  )}
+                  <span>Admin ({user.first_name})</span>
                 </Link>
               ) : user.role === 'makler' ? (
-                <Link to="/broker" className="btn btn-outline" id="btn-broker-nav">
-                  <User size={18} />
-                  <span>Makler Kabineti</span>
+                <Link to="/broker" className="btn btn-outline" id="btn-broker-nav" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {user.avatar_url ? (
+                    <img src={getFullImageUrl(user.avatar_url)} alt="Makler" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <User size={18} />
+                  )}
+                  <span>Makler ({user.first_name})</span>
                 </Link>
               ) : (
-                <Link to="/client" className="btn btn-outline" id="btn-client-nav">
-                  <User size={18} />
-                  <span>Mening kabinetim</span>
+                <Link to="/client" className="btn btn-outline" id="btn-client-nav" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {user.avatar_url ? (
+                    <img src={getFullImageUrl(user.avatar_url)} alt="Client" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <User size={18} />
+                  )}
+                  <span>Kabinet ({user.first_name})</span>
                 </Link>
               )}
 

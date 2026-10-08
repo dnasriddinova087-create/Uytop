@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Filter, SlidersHorizontal, Map, Grid, RefreshCw, X, Search } from 'lucide-react';
+import { Filter, SlidersHorizontal, Map, Grid, RefreshCw, X, Search, Wifi, Shirt, Wind, Building2, Users } from 'lucide-react';
 import { Property, LocationItem } from '../types';
 import { api } from '../services/api';
 import { PropertyCard } from '../components/PropertyCard';
@@ -11,6 +11,7 @@ export const CatalogPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Filters state initialized from URL
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [region, setRegion] = useState(searchParams.get('region') || '');
   const [cityDistrict, setCityDistrict] = useState(searchParams.get('city_district') || '');
   const [propertyType, setPropertyType] = useState(searchParams.get('property_type') || '');
@@ -51,6 +52,7 @@ export const CatalogPage: React.FC = () => {
         sort_by: sortBy,
       };
 
+      if (searchQuery.trim()) params.q = searchQuery.trim();
       if (region) params.region = region;
       if (cityDistrict) params.city_district = cityDistrict;
       if (propertyType) params.property_type = propertyType;
@@ -77,9 +79,10 @@ export const CatalogPage: React.FC = () => {
 
   useEffect(() => {
     fetchProperties();
-  }, [region, cityDistrict, propertyType, rentType, priceMin, priceMax, rooms, sortBy, wifi, washingMachine, airConditioning, elevator, familyFriendly]);
+  }, [searchQuery, region, cityDistrict, propertyType, rentType, priceMin, priceMax, rooms, sortBy, wifi, washingMachine, airConditioning, elevator, familyFriendly]);
 
   const handleClearFilters = () => {
+    setSearchQuery('');
     setRegion('');
     setCityDistrict('');
     setPropertyType('');
@@ -155,13 +158,54 @@ export const CatalogPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Universal Search Bar */}
+      <div style={{
+        marginBottom: '1.5rem',
+        position: 'relative',
+        boxShadow: 'var(--shadow-sm)',
+        borderRadius: '16px',
+        background: '#FFFFFF',
+        border: '1px solid #E5E7EB',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '6px 16px',
+      }}>
+        <Search size={22} color="#10B981" style={{ marginRight: '12px', flexShrink: 0 }} />
+        <input
+          type="text"
+          placeholder="Hudud, shahar, tuman, mahalla yoki manzil bo'yicha qidirish (masalan: Chilonzor, Yunusobod, Samarqand...)"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            border: 'none',
+            outline: 'none',
+            width: '100%',
+            height: '44px',
+            fontSize: '1rem',
+            background: 'transparent',
+            color: '#111827',
+          }}
+          id="catalog-search-query-input"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: '4px' }}
+            title="Qidiruvni tozalash"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
+
       {/* Primary Filter Bar */}
       <div style={{
         background: '#FFFFFF',
         border: '1px solid #E5E7EB',
         borderRadius: '16px',
         padding: '1.25rem',
-        marginBottom: '2rem',
+        marginBottom: '1.5rem',
         boxShadow: 'var(--shadow-sm)',
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -246,12 +290,12 @@ export const CatalogPage: React.FC = () => {
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '0.75rem',
+        gap: '0.85rem',
         flexWrap: 'wrap',
         marginBottom: '2rem',
-        padding: '0.75rem 1rem',
+        padding: '0.85rem 1.25rem',
         background: '#FFFFFF',
-        borderRadius: '12px',
+        borderRadius: '14px',
         border: '1px solid #E5E7EB',
       }}>
         <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4B5563' }}>Qulayliklar:</span>
@@ -263,7 +307,7 @@ export const CatalogPage: React.FC = () => {
             onChange={(e) => setWifi(e.target.checked ? 'available' : '')}
             id="checkbox-wifi"
           />
-          📶 Wi-Fi
+          <Wifi size={16} color="#10B981" /> Wi-Fi
         </label>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -273,7 +317,7 @@ export const CatalogPage: React.FC = () => {
             onChange={(e) => setWashingMachine(e.target.checked ? 'available' : '')}
             id="checkbox-washing-machine"
           />
-          🧺 Kir yuvish mashinasi
+          <Shirt size={16} color="#10B981" /> Kir yuvish mashinasi
         </label>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -283,7 +327,7 @@ export const CatalogPage: React.FC = () => {
             onChange={(e) => setAirConditioning(e.target.checked ? 'available' : '')}
             id="checkbox-ac"
           />
-          ❄️ Konditsioner
+          <Wind size={16} color="#10B981" /> Konditsioner
         </label>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -293,7 +337,7 @@ export const CatalogPage: React.FC = () => {
             onChange={(e) => setElevator(e.target.checked ? 'available' : '')}
             id="checkbox-elevator"
           />
-          🛗 Lift
+          <Building2 size={16} color="#10B981" /> Lift
         </label>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -303,7 +347,7 @@ export const CatalogPage: React.FC = () => {
             onChange={(e) => setFamilyFriendly(e.target.checked ? 'available' : '')}
             id="checkbox-family"
           />
-          👨‍👩‍👧 Oilalar uchun
+          <Users size={16} color="#10B981" /> Oilalar uchun
         </label>
       </div>
 

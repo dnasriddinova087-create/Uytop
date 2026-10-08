@@ -441,7 +441,7 @@ export const AddPropertyPage: React.FC = () => {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600 }}>
-                    <span style={{ fontSize: '1.2rem' }}>{meta.icon}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', color: '#10B981' }}>{meta.icon}</span>
                     <span>{meta.name}</span>
                   </div>
 

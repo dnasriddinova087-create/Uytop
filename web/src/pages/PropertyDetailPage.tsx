@@ -393,6 +393,7 @@ export const PropertyDetailPage: React.FC = () => {
                 width: '54px',
                 height: '54px',
                 borderRadius: '50%',
+                overflow: 'hidden',
                 background: '#ECFDF5',
                 color: '#065F46',
                 display: 'flex',
@@ -400,8 +401,13 @@ export const PropertyDetailPage: React.FC = () => {
                 justifyContent: 'center',
                 fontSize: '1.25rem',
                 fontWeight: 800,
+                flexShrink: 0,
               }}>
-                {property.owner?.first_name ? property.owner.first_name[0] : 'U'}
+                {property.owner?.avatar_url ? (
+                  <img src={getFullImageUrl(property.owner.avatar_url)} alt="owner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  property.owner?.first_name ? property.owner.first_name[0] : 'U'
+                )}
               </div>
               <div>
                 <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#111827' }}>

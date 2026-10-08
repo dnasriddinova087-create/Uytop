@@ -34,13 +34,13 @@ def auto_seed_if_empty(db):
         if db.query(User).first() is not None:
             return
 
-        # 1. Admin
+        # 1. Admin (Nasriddinova Dilfuza)
         admin = User(
-            first_name="Ulug'bek",
-            last_name="Administrator",
+            first_name="Dilfuza",
+            last_name="Nasriddinova",
             phone="+998901112233",
             email="admin@uytop.uz",
-            hashed_password=get_password_hash("Admin123!"),
+            hashed_password=get_password_hash("dilfuza.4002"),
             role=UserRole.ADMIN.value,
             is_active=True,
             is_verified=True

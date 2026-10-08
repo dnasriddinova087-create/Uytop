@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, MessageSquare, User, AlertCircle, Shield, CheckCircle } from 'lucide-react';
+import { Heart, MessageSquare, User as UserIcon, Phone, Mail, Shield } from 'lucide-react';
 import { Property, Conversation } from '../types';
-import { api } from '../services/api';
+import { api, getFullImageUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { PropertyCard } from '../components/PropertyCard';
 import { LoadingSpinner } from '../components/LoadingSkeleton';
+import { ProfileSettingsCard } from '../components/ProfileSettingsCard';
 
 export const ClientDashboardPage: React.FC = () => {
   const { user, updateUser } = useAuth();
@@ -14,12 +15,6 @@ export const ClientDashboardPage: React.FC = () => {
   const [favorites, setFavorites] = useState<Property[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Profile Edit
-  const [firstName, setFirstName] = useState(user?.first_name || '');
-  const [lastName, setLastName] = useState(user?.last_name || '');
-  const [email, setEmail] = useState(user?.email || '');
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,21 +35,7 @@ export const ClientDashboardPage: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const updated = await api.updateMe({
-        first_name: firstName,
-        last_name: lastName,
-        email: email || undefined,
-      });
-      updateUser(updated);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err: any) {
-      alert('Xatolik: ' + err.message);
-    }
-  };
+  const avatarSrc = user?.avatar_url ? getFullImageUrl(user.avatar_url) : null;
 
   return (
     <div className="container" style={{ marginTop: '2rem', marginBottom: '5rem' }}>
@@ -74,26 +55,38 @@ export const ClientDashboardPage: React.FC = () => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
           <div style={{
-            width: '64px',
-            height: '64px',
+            width: '68px',
+            height: '68px',
             borderRadius: '50%',
+            overflow: 'hidden',
             background: '#ECFDF5',
+            border: '2px solid #10B981',
             color: '#0F382A',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '1.5rem',
+            fontSize: '1.6rem',
             fontWeight: 800,
           }}>
-            {user?.first_name ? user.first_name[0] : 'M'}
+            {avatarSrc ? (
+              <img src={avatarSrc} alt={user?.first_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              user?.first_name ? user.first_name[0] : 'M'
+            )}
           </div>
           <div>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#111827' }} id="client-name-heading">
               {user?.first_name} {user?.last_name}
             </h1>
-            <div style={{ display: 'flex', gap: '1rem', color: '#6B7280', fontSize: '0.875rem', marginTop: '4px' }}>
-              <span>📞 {user?.phone}</span>
-              {user?.email && <span>✉️ {user.email}</span>}
+            <div style={{ display: 'flex', gap: '1rem', color: '#6B7280', fontSize: '0.875rem', marginTop: '4px', flexWrap: 'wrap' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Phone size={14} color="#10B981" /> {user?.phone}
+              </span>
+              {user?.email && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Mail size={14} color="#10B981" /> {user.email}
+                </span>
+              )}
               <span className="badge badge-active" style={{ textTransform: 'capitalize' }}>
                 {user?.role === 'makler' ? 'Makler' : user?.role === 'admin' ? 'Admin' : 'Mijoz'}
               </span>
@@ -143,7 +136,7 @@ export const ClientDashboardPage: React.FC = () => {
           }}
           id="tab-client-chats"
         >
-          <MessageSquare size={18} /> Xabarlarim ({conversations.length})
+          <MessageSquare size={18} /> Muloqotlar ({conversations.length})
         </button>
 
         <button
@@ -161,20 +154,20 @@ export const ClientDashboardPage: React.FC = () => {
           }}
           id="tab-client-profile"
         >
-          <User size={18} /> Profil sozlamalari
+          <UserIcon size={18} /> Profil sozlamalari
         </button>
       </div>
 
-      {/* Content */}
+      {/* Tab Contents */}
       {loading ? (
-        <LoadingSpinner />
+        <LoadingSpinner text="Yuklanmoqda..." />
       ) : activeTab === 'favorites' ? (
         favorites.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5E7EB' }}>
             <Heart size={48} color="#9CA3AF" />
-            <h3 style={{ marginTop: '1rem', color: '#111827' }}>Sizda hali saqlangan uylar yo'q</h3>
+            <h3 style={{ marginTop: '1rem', color: '#111827' }}>Sevimlilar ro'yxati bo'sh</h3>
             <p style={{ color: '#6B7280', marginTop: '0.5rem', marginBottom: '1.5rem' }}>
-              Katalogdan o'zingizga ma'qul uylarni yurakcha tugmasi orqali saqlang.
+              O'zingizga yoqqan uylarni yurakcha tugmasi orqali saqlab qo'yishingiz mumkin.
             </p>
             <Link to="/catalog" className="btn btn-primary">
               Katalogga o'tish
@@ -185,11 +178,9 @@ export const ClientDashboardPage: React.FC = () => {
             {favorites.map((prop) => (
               <PropertyCard
                 key={prop.id}
-                property={{ ...prop, is_favorited: true }}
-                onFavoriteChange={(propId, isFavNow) => {
-                  if (!isFavNow) {
-                    setFavorites((prev) => prev.filter((p) => p.id !== propId));
-                  }
+                property={prop}
+                onFavoriteChange={(id, isFav) => {
+                  if (!isFav) setFavorites((prev) => prev.filter((p) => p.id !== id));
                 }}
               />
             ))}
@@ -231,6 +222,7 @@ export const ClientDashboardPage: React.FC = () => {
                     width: '48px',
                     height: '48px',
                     borderRadius: '50%',
+                    overflow: 'hidden',
                     background: '#ECFDF5',
                     color: '#0F382A',
                     display: 'flex',
@@ -238,7 +230,11 @@ export const ClientDashboardPage: React.FC = () => {
                     justifyContent: 'center',
                     fontWeight: 700,
                   }}>
-                    {conv.broker?.first_name ? conv.broker.first_name[0] : 'M'}
+                    {conv.broker?.avatar_url ? (
+                      <img src={getFullImageUrl(conv.broker.avatar_url)} alt="broker" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      conv.broker?.first_name ? conv.broker.first_name[0] : 'M'
+                    )}
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, color: '#111827' }}>
@@ -258,52 +254,7 @@ export const ClientDashboardPage: React.FC = () => {
           </div>
         )
       ) : (
-        <div style={{ maxWidth: '480px', background: '#FFFFFF', padding: '2rem', borderRadius: '16px', border: '1px solid #E5E7EB' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F382A', marginBottom: '1.25rem' }}>
-            Shaxsiy ma'lumotlarni tahrirlash
-          </h3>
-
-          {saveSuccess && (
-            <div style={{ padding: '0.75rem', background: '#ECFDF5', color: '#065F46', borderRadius: '8px', marginBottom: '1rem', fontWeight: 600 }}>
-              Ma'lumotlar saqlandi!
-            </div>
-          )}
-
-          <form onSubmit={handleSaveProfile}>
-            <div className="form-group">
-              <label className="form-label">Ism:</label>
-              <input
-                type="text"
-                className="form-input"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Familiya:</label>
-              <input
-                type="text"
-                className="form-input"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Email:</label>
-              <input
-                type="email"
-                className="form-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }}>
-              O'zgarishlarni saqlash
-            </button>
-          </form>
-        </div>
+        user && <ProfileSettingsCard user={user} onUserUpdated={updateUser} />
       )}
     </div>
   );

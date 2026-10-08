@@ -70,6 +70,18 @@ export const api = {
     method: 'PATCH',
     body: JSON.stringify(data),
   }),
+  uploadAvatar: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<User>('/users/me/avatar', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+  changePassword: (data: { old_password: string; new_password: string }) => request<{ message: string }>('/users/me/change-password', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 
   // Locations
   getLocations: () => request<LocationItem[]>('/locations'),
@@ -154,5 +166,15 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+  adminDeleteProperty: (propertyId: number) =>
+    request<{ message: string }>(`/admin/properties/${propertyId}`, {
+      method: 'DELETE',
+    }),
+  getAdminConversations: (search?: string) => {
+    const sp = search ? `?search=${encodeURIComponent(search)}` : '';
+    return request<Conversation[]>(`/admin/conversations${sp}`);
+  },
+  getAdminMessages: (conversationId: number) =>
+    request<Message[]>(`/admin/conversations/${conversationId}/messages`),
   getAuditLogs: () => request<{ items: AuditLog[]; total: number }>('/admin/audit-logs'),
 };

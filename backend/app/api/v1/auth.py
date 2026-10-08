@@ -49,6 +49,11 @@ def register(request_data: RegisterRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Faqat mijoz yoki makler roli tanlanishi mumkin"
         )
+
+    # Email is strictly for brokers only; client registration does not use email
+    user_email = None
+    if role_normalized == UserRole.MAKLER.value and request_data.email:
+        user_email = request_data.email.strip()
     
     # Create user
     try:
@@ -56,7 +61,7 @@ def register(request_data: RegisterRequest, db: Session = Depends(get_db)):
             first_name=request_data.first_name.strip(),
             last_name=request_data.last_name.strip(),
             phone=request_data.phone.strip(),
-            email=request_data.email.strip() if request_data.email else None,
+            email=user_email,
             hashed_password=get_password_hash(request_data.password),
             role=role_normalized,
             is_active=True,
