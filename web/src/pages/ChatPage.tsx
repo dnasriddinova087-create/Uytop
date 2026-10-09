@@ -5,6 +5,7 @@ import { Conversation, Message } from '../types';
 import { api, getFullImageUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner } from '../components/LoadingSkeleton';
+import { trackUserActivity } from '../services/activityTracker';
 
 export const ChatPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -70,6 +71,9 @@ export const ChatPage: React.FC = () => {
     try {
       const newMsg = await api.sendMessage(activeConvId, messageText.trim());
       setMessages((prev) => [...prev, newMsg]);
+      trackUserActivity('CHAT_MESSAGE_SENT', 'conversation', activeConvId, {
+        snippet: messageText.trim().slice(0, 60),
+      });
       setMessageText('');
       fetchConversations(); // update last message preview
     } catch (err: any) {

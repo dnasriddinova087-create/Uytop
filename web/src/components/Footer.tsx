@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Phone, Mail, MapPin } from 'lucide-react';
+import { Phone, Mail, MapPin } from 'lucide-react';
+import { UyTopHouseIcon } from './UyTopHouseIcon';
 
 export const Footer: React.FC = () => {
   return (
@@ -9,7 +10,7 @@ export const Footer: React.FC = () => {
         <div className="footer-grid">
           <div className="footer-col">
             <div className="brand-logo" style={{ color: '#FFFFFF', marginBottom: '1rem' }}>
-              <Home size={28} color="#10B981" strokeWidth={2.5} />
+              <UyTopHouseIcon size={28} color="#10B981" />
               <span>Uy<span style={{ color: '#10B981' }}>Top</span></span>
             </div>
             <p style={{ color: '#9CA3AF', fontSize: '0.9rem', marginBottom: '1.25rem', maxWidth: '320px' }}>

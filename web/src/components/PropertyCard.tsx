@@ -4,6 +4,7 @@ import { MapPin, Heart, Maximize2, Layers } from 'lucide-react';
 import { Property } from '../types';
 import { api, getFullImageUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { trackUserActivity } from '../services/activityTracker';
 
 interface PropertyCardProps {
   property: Property;
@@ -43,10 +44,12 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onFavorite
       if (isFav) {
         await api.removeFavorite(property.id);
         setIsFav(false);
+        trackUserActivity('FAVORITE_REMOVE', 'property', property.id, { title: property.title });
         onFavoriteChange?.(property.id, false);
       } else {
         await api.addFavorite(property.id);
         setIsFav(true);
+        trackUserActivity('FAVORITE_ADD', 'property', property.id, { title: property.title });
         onFavoriteChange?.(property.id, true);
       }
     } catch (err) {

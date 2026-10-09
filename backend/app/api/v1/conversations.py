@@ -14,6 +14,7 @@ from app.schemas.chat import (
 )
 from app.schemas.user import UserResponse
 from app.api.deps import get_current_user
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/conversations", tags=["Conversations & Chat"])
 
@@ -133,6 +134,18 @@ def start_or_get_conversation(
     db.commit()
     db.refresh(new_conv)
 
+    try:
+        log_audit(
+            db,
+            action="CHAT_START",
+            entity_type="conversation",
+            user_id=current_user.id,
+            entity_id=new_conv.id,
+            details={"broker_id": new_conv.broker_id, "property_id": new_conv.property_id}
+        )
+    except Exception:
+        pass
+
     conv_loaded = db.query(Conversation).filter(Conversation.id == new_conv.id).options(
         joinedload(Conversation.client),
         joinedload(Conversation.broker),
@@ -191,5 +204,17 @@ def send_message(
     conv.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(msg)
+
+    try:
+        log_audit(
+            db,
+            action="CHAT_MESSAGE_SENT",
+            entity_type="conversation",
+            user_id=current_user.id,
+            entity_id=conversation_id,
+            details={"snippet": msg.text[:80]}
+        )
+    except Exception:
+        pass
 
     return MessageResponse.model_validate(msg)

@@ -729,11 +729,89 @@ export const api = {
     }
   },
 
-  getAuditLogs: async (): Promise<{ items: AuditLog[]; total: number }> => {
+  recordActivity: async (data: {
+    action: string;
+    entity_type?: string;
+    entity_id?: number;
+    details?: string;
+    device_info?: string;
+  }): Promise<{ status: string; id: number }> => {
     try {
-      return await request<{ items: AuditLog[]; total: number }>('/admin/audit-logs');
+      return await request<{ status: string; id: number }>('/users/activity', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
     } catch {
-      return { items: INITIAL_AUDIT_LOGS, total: INITIAL_AUDIT_LOGS.length };
+      // Local fallback persistence
+      const stored = localStorage.getItem('uytop_local_audit_logs');
+      const list: AuditLog[] = stored ? JSON.parse(stored) : [...INITIAL_AUDIT_LOGS];
+      const userRaw = localStorage.getItem('uytop_user');
+      const curUser = userRaw ? JSON.parse(userRaw) : null;
+      const newEntry: AuditLog = {
+        id: Date.now(),
+        user_id: curUser?.id || null,
+        user: curUser || undefined,
+        action: data.action,
+        entity_type: data.entity_type || 'general',
+        entity_id: data.entity_id || null,
+        details: data.details || '',
+        ip_address: '127.0.0.1 (Lokal)',
+        created_at: new Date().toISOString(),
+      };
+      list.unshift(newEntry);
+      localStorage.setItem('uytop_local_audit_logs', JSON.stringify(list));
+      return { status: 'ok', id: newEntry.id };
+    }
+  },
+
+  getAuditLogs: async (params?: { search?: string; action?: string; user_id?: number }): Promise<{ items: AuditLog[]; total: number }> => {
+    try {
+      const sp = new URLSearchParams();
+      if (params?.search) sp.append('search', params.search);
+      if (params?.action) sp.append('action', params.action);
+      if (params?.user_id) sp.append('user_id', String(params.user_id));
+      const q = sp.toString() ? `?${sp.toString()}` : '';
+      return await request<{ items: AuditLog[]; total: number }>(`/admin/audit-logs${q}`);
+    } catch {
+      const stored = localStorage.getItem('uytop_local_audit_logs');
+      let list: AuditLog[] = stored ? JSON.parse(stored) : [...INITIAL_AUDIT_LOGS];
+      if (params?.search) {
+        const s = params.search.toLowerCase();
+        list = list.filter(l =>
+          l.action.toLowerCase().includes(s) ||
+          (l.details && l.details.toLowerCase().includes(s)) ||
+          (l.user && `${l.user.first_name} ${l.user.phone}`.toLowerCase().includes(s))
+        );
+      }
+      if (params?.action) {
+        list = list.filter(l => l.action === params.action);
+      }
+      return { items: list, total: list.length };
+    }
+  },
+
+  deleteAuditLog: async (logId: number): Promise<{ message: string; id: number }> => {
+    try {
+      return await request<{ message: string; id: number }>(`/admin/audit-logs/${logId}`, {
+        method: 'DELETE',
+      });
+    } catch {
+      const stored = localStorage.getItem('uytop_local_audit_logs');
+      let list: AuditLog[] = stored ? JSON.parse(stored) : [...INITIAL_AUDIT_LOGS];
+      list = list.filter(l => l.id !== logId);
+      localStorage.setItem('uytop_local_audit_logs', JSON.stringify(list));
+      return { message: "Audit yozuvi o'chirildi", id: logId };
+    }
+  },
+
+  clearAuditLogs: async (): Promise<{ message: string; count: number }> => {
+    try {
+      return await request<{ message: string; count: number }>('/admin/audit-logs', {
+        method: 'DELETE',
+      });
+    } catch {
+      localStorage.setItem('uytop_local_audit_logs', JSON.stringify([]));
+      return { message: "Barcha jurnallar o'chirildi", count: 0 };
     }
   },
 };

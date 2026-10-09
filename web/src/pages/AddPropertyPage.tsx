@@ -6,6 +6,7 @@ import { LocationItem, AmenityState } from '../types';
 import { ALL_AMENITIES } from '../components/AmenityBadge';
 import { InteractiveMap } from '../components/InteractiveMap';
 import { useAuth } from '../context/AuthContext';
+import { trackUserActivity } from '../services/activityTracker';
 
 export const AddPropertyPage: React.FC = () => {
   const navigate = useNavigate();
@@ -145,6 +146,11 @@ export const AddPropertyPage: React.FC = () => {
       };
 
       const created = await api.createProperty(propertyPayload);
+      trackUserActivity('PROPERTY_CREATE', 'property', created.id, {
+        title: created.title,
+        price: created.price,
+        region: created.region,
+      });
 
       // Upload photos if any
       if (selectedFiles.length > 0) {

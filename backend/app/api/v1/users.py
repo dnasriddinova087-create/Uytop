@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+import json
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import UserResponse, UserUpdateMe, ChangePasswordRequest
+from app.schemas.user import UserResponse, UserUpdateMe, ChangePasswordRequest, UserActivityCreate
 from app.api.deps import get_current_user
 from app.services.auth import get_password_hash, verify_password
 from app.services.file_upload import save_uploaded_image
@@ -104,3 +105,37 @@ def change_password(
     )
     
     return {"message": "Parol muvaffaqiyatli almashtirildi"}
+
+@router.post("/activity", status_code=status.HTTP_201_CREATED)
+def record_user_activity(
+    data: UserActivityCreate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Immediately logs registered user actions from any device, persisting until deleted by admin."""
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent", "")
+
+    details_data = {}
+    if data.details:
+        try:
+            details_data = json.loads(data.details) if data.details.strip().startswith("{") else {"info": data.details}
+        except Exception:
+            details_data = {"info": data.details}
+
+    if data.device_info:
+        details_data["device"] = data.device_info
+    elif user_agent:
+        details_data["device"] = user_agent[:120]
+
+    log = log_audit(
+        db,
+        action=data.action,
+        entity_type=data.entity_type,
+        user_id=current_user.id,
+        entity_id=data.entity_id,
+        details=details_data,
+        ip_address=client_ip
+    )
+    return {"status": "ok", "id": log.id, "action": log.action}

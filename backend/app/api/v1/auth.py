@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -24,7 +24,7 @@ from app.services.audit import log_audit
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def register(request_data: RegisterRequest, db: Session = Depends(get_db)):
+def register(request_data: RegisterRequest, request: Request, db: Session = Depends(get_db)):
     # Check phone uniqueness
     existing_phone = db.query(User).filter(User.phone == request_data.phone).first()
     if existing_phone:
@@ -83,13 +83,16 @@ def register(request_data: RegisterRequest, db: Session = Depends(get_db)):
     
     # Audit log (non-blocking)
     try:
+        client_ip = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent", "")
         log_audit(
             db,
             action="USER_REGISTER",
             entity_type="user",
             user_id=new_user.id,
             entity_id=new_user.id,
-            details={"role": new_user.role, "phone": new_user.phone}
+            details={"role": new_user.role, "phone": new_user.phone, "device": user_agent[:120]},
+            ip_address=client_ip
         )
     except Exception:
         pass
@@ -102,7 +105,7 @@ def register(request_data: RegisterRequest, db: Session = Depends(get_db)):
     )
 
 @router.post("/login", response_model=TokenResponse)
-def login(request_data: LoginRequest, db: Session = Depends(get_db)):
+def login(request_data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     ident = request_data.identifier.strip()
     # Search by phone or email
     user = db.query(User).filter(
@@ -123,6 +126,22 @@ def login(request_data: LoginRequest, db: Session = Depends(get_db)):
     
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
+    # Immediately log user login action from device
+    try:
+        client_ip = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent", "")
+        log_audit(
+            db,
+            action="USER_LOGIN",
+            entity_type="user",
+            user_id=user.id,
+            entity_id=user.id,
+            details={"phone": user.phone, "role": user.role, "device": user_agent[:120]},
+            ip_address=client_ip
+        )
+    except Exception:
+        pass
     
     return TokenResponse(
         access_token=access_token,

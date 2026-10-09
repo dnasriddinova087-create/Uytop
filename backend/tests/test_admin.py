@@ -38,3 +38,36 @@ def test_admin_user_block_and_audit(client, auth_headers, client_user):
     audit_res = client.get("/api/v1/admin/audit-logs", headers=auth_headers("admin"))
     assert audit_res.status_code == status.HTTP_200_OK
     assert audit_res.json()["total"] >= 1
+
+def test_user_activity_recording_and_admin_delete(client, auth_headers, client_user):
+    # Registered client records activity from mobile device
+    act_res = client.post(
+        "/api/v1/users/activity",
+        json={
+            "action": "MOBILE_SEARCH",
+            "entity_type": "property",
+            "device_info": "Mobil telefon (iPhone iOS 17)",
+            "details": "Chilonzorda kvartira qidirildi"
+        },
+        headers=auth_headers("client")
+    )
+    assert act_res.status_code == status.HTTP_201_CREATED
+    log_id = act_res.json()["id"]
+
+    # Admin sees the activity in audit logs
+    audit_res = client.get(
+        "/api/v1/admin/audit-logs",
+        params={"search": "iPhone"},
+        headers=auth_headers("admin")
+    )
+    assert audit_res.status_code == status.HTTP_200_OK
+    data = audit_res.json()
+    assert any(item["id"] == log_id for item in data["items"])
+
+    # Admin deletes this specific activity log
+    del_res = client.delete(f"/api/v1/admin/audit-logs/{log_id}", headers=auth_headers("admin"))
+    assert del_res.status_code == status.HTTP_200_OK
+
+    # Non-admin cannot delete audit logs
+    del_res_forbidden = client.delete(f"/api/v1/admin/audit-logs/{log_id}", headers=auth_headers("client"))
+    assert del_res_forbidden.status_code == status.HTTP_403_FORBIDDEN

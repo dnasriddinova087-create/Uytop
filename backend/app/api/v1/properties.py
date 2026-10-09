@@ -258,6 +258,19 @@ def get_property(
     prop.views_count += 1
     db.commit()
 
+    if current_user:
+        try:
+            log_audit(
+                db,
+                action="PROPERTY_VIEW",
+                entity_type="property",
+                user_id=current_user.id,
+                entity_id=prop.id,
+                details={"title": prop.title, "price": prop.price, "currency": prop.currency}
+            )
+        except Exception:
+            pass
+
     current_uid = current_user.id if current_user else None
     return _format_property_response(prop, current_uid)
 

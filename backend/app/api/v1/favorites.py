@@ -8,6 +8,7 @@ from app.models.favorite import Favorite
 from app.schemas.property import PropertyResponse
 from app.api.deps import get_current_user
 from app.api.v1.properties import _format_property_response
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/favorites", tags=["Favorites"])
 
@@ -48,6 +49,17 @@ def add_favorite(
         fav = Favorite(user_id=current_user.id, property_id=property_id)
         db.add(fav)
         db.commit()
+        try:
+            log_audit(
+                db,
+                action="FAVORITE_ADD",
+                entity_type="property",
+                user_id=current_user.id,
+                entity_id=property_id,
+                details={"title": prop.title}
+            )
+        except Exception:
+            pass
 
     return {"message": "Uy sevimlilarga saqlandi", "property_id": property_id, "is_favorited": True}
 
@@ -65,5 +77,15 @@ def remove_favorite(
     if fav:
         db.delete(fav)
         db.commit()
+        try:
+            log_audit(
+                db,
+                action="FAVORITE_REMOVE",
+                entity_type="property",
+                user_id=current_user.id,
+                entity_id=property_id
+            )
+        except Exception:
+            pass
 
     return {"message": "Uy sevimlilardan olib tashlandi", "property_id": property_id, "is_favorited": False}

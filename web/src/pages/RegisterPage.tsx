@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Home, Eye, EyeOff, User, Phone, Mail, Check } from 'lucide-react';
+import { Eye, EyeOff, User, Phone, Mail, Check } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { UyTopHouseIcon } from '../components/UyTopHouseIcon';
+import { trackUserActivity } from '../services/activityTracker';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -61,6 +63,7 @@ export const RegisterPage: React.FC = () => {
 
       const res = await api.register(payload);
       login(res.access_token, res.refresh_token, res.user);
+      trackUserActivity('USER_REGISTER', 'user', res.user.id, { role: res.user.role, phone: res.user.phone });
 
       if (res.user.role === 'makler') {
         navigate('/broker');
@@ -92,8 +95,8 @@ export const RegisterPage: React.FC = () => {
         boxShadow: 'var(--shadow-xl)',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '1.6rem', fontWeight: 800, color: '#0F382A' }}>
-            <Home size={30} color="#0F382A" />
+          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '1.6rem', fontWeight: 800, color: '#0F382A' }}>
+            <UyTopHouseIcon size={32} color="#10B981" />
             <span>Uy<span style={{ color: '#10B981' }}>Top</span></span>
           </Link>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', marginTop: '1rem' }}>

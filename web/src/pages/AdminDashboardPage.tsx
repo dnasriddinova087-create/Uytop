@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Shield, Users, Building, AlertTriangle, FileText, CheckCircle,
   XCircle, Search, Eye, Lock, Unlock, ExternalLink, Edit3, Trash2,
-  MessageSquare, Phone, Mail, ArrowUpDown, RefreshCw, UserCheck, X
+  MessageSquare, Phone, Mail, ArrowUpDown, RefreshCw, UserCheck, X,
+  Smartphone, Laptop, Activity
 } from 'lucide-react';
 import { AdminStats, User, Property, AuditLog, Conversation, Message } from '../types';
 import { api, getFullImageUrl } from '../services/api';
@@ -117,12 +118,50 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  const fetchAuditLogs = async () => {
+  // Audit Logs State
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditActionFilter, setAuditActionFilter] = useState('');
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [deletingLogId, setDeletingLogId] = useState<number | null>(null);
+
+  const fetchAuditLogs = async (searchParam?: string, actionParam?: string) => {
+    setAuditLoading(true);
     try {
-      const data = await api.getAuditLogs();
+      const data = await api.getAuditLogs({
+        search: searchParam !== undefined ? searchParam : (auditSearch || undefined),
+        action: actionParam !== undefined ? actionParam : (auditActionFilter || undefined),
+      });
       setAuditLogs(data.items);
     } catch (err) {
       console.error('Failed to load audit logs', err);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const handleDeleteAuditLog = async (id: number) => {
+    if (!window.confirm("Rostdan ham ushbu foydalanuvchi harakat yozuvini o'chirmoqchimisiz? Bu faqat admin huquqi.")) return;
+    setDeletingLogId(id);
+    try {
+      await api.deleteAuditLog(id);
+      setAuditLogs((prev) => prev.filter((item) => item.id !== id));
+    } catch (err: any) {
+      alert("Xatolik: " + err.message);
+    } finally {
+      setDeletingLogId(null);
+    }
+  };
+
+  const handleClearAllAuditLogs = async () => {
+    if (!window.confirm("Barcha foydalanuvchi harakat jurnallarini butunlay tozalashni tasdiqlaysizmi?")) return;
+    setAuditLoading(true);
+    try {
+      await api.clearAuditLogs();
+      setAuditLogs([]);
+    } catch (err: any) {
+      alert("Xatolik: " + err.message);
+    } finally {
+      setAuditLoading(false);
     }
   };
 
@@ -1084,39 +1123,234 @@ export const AdminDashboardPage: React.FC = () => {
         <ProfileSettingsCard user={currentAdmin} onUserUpdated={updateUser} />
       )}
 
-      {/* 7. Audit Logs Tab */}
+      {/* 7. Audit & User Activity Logs Tab */}
       {activeTab === 'audit' && (
-        <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '20px', padding: '1.75rem', boxShadow: 'var(--shadow-sm)' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F382A', marginBottom: '1.25rem' }}>
-            Tizim audit jurnali (Audit Logs)
-          </h3>
+        <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '24px', padding: '1.75rem', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={24} color="#10B981" />
+                <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0F382A' }}>
+                  Foydalanuvchilar harakati va audit monitoringi
+                </h3>
+              </div>
+              <p style={{ color: '#6B7280', fontSize: '0.9rem', marginTop: '4px' }}>
+                Har qanday qurilmadan (mobil, kompyuter) ro'yxatdan o'tgan foydalanuvchilarning barcha harakatlari darhol qayd etiladi va faqat administrator o'chirguncha saqlanadi.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => fetchAuditLogs()}
+                className="btn btn-outline"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                disabled={auditLoading}
+              >
+                <RefreshCw size={16} className={auditLoading ? 'spin' : ''} />
+                Yangilash
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAllAuditLogs}
+                className="btn btn-danger"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                disabled={auditLoading || auditLogs.length === 0}
+              >
+                <Trash2 size={16} />
+                Barchasini tozalash
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Metrics Bar */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div style={{ background: '#F8FBF9', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '1rem' }}>
+              <div style={{ fontSize: '0.8rem', color: '#6B7280', fontWeight: 600 }}>Jami yozuvlar</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F382A', marginTop: '4px' }}>{auditLogs.length} ta</div>
+            </div>
+            <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '12px', padding: '1rem' }}>
+              <div style={{ fontSize: '0.8rem', color: '#065F46', fontWeight: 600 }}>Mobil qurilmalar faolligi</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#059669', marginTop: '4px' }}>
+                {auditLogs.filter((l) => (l.details || '').toLowerCase().includes('mobil') || (l.details || '').toLowerCase().includes('iphone') || (l.details || '').toLowerCase().includes('android')).length} ta
+              </div>
+            </div>
+            <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '1rem' }}>
+              <div style={{ fontSize: '0.8rem', color: '#1E40AF', fontWeight: 600 }}>Kompyuter / Desktop</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#2563EB', marginTop: '4px' }}>
+                {auditLogs.filter((l) => (l.details || '').toLowerCase().includes('kompyuter') || (l.details || '').toLowerCase().includes('windows') || (l.details || '').toLowerCase().includes('mac')).length} ta
+              </div>
+            </div>
+          </div>
+
+          {/* Filters Bar */}
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+              <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+              <input
+                type="text"
+                placeholder="Foydalanuvchi, telefon, amal yoki qurilma bo'yicha qidirish..."
+                className="form-input"
+                style={{ paddingLeft: '2.5rem', fontSize: '0.9rem' }}
+                value={auditSearch}
+                onChange={(e) => {
+                  setAuditSearch(e.target.value);
+                  fetchAuditLogs(e.target.value, auditActionFilter);
+                }}
+              />
+            </div>
+
+            <select
+              className="form-input"
+              style={{ width: 'auto', minWidth: '200px', fontSize: '0.9rem' }}
+              value={auditActionFilter}
+              onChange={(e) => {
+                setAuditActionFilter(e.target.value);
+                fetchAuditLogs(auditSearch, e.target.value);
+              }}
+            >
+              <option value="">Barcha harakat turlari</option>
+              <option value="USER_LOGIN">Tizimga kirish (USER_LOGIN)</option>
+              <option value="USER_REGISTER">Ro'yxatdan o'tish (USER_REGISTER)</option>
+              <option value="PROPERTY_VIEW">E'lonni ko'rish (PROPERTY_VIEW)</option>
+              <option value="FAVORITE_ADD">Sevimlilarga qo'shish (FAVORITE_ADD)</option>
+              <option value="FAVORITE_REMOVE">Sevimlilardan o'chirish (FAVORITE_REMOVE)</option>
+              <option value="CHAT_MESSAGE_SENT">Xabar yuborish (CHAT_MESSAGE_SENT)</option>
+              <option value="CHAT_START">Suhbat boshlash (CHAT_START)</option>
+              <option value="PROPERTY_CREATE">Yangi uy qo'shish (PROPERTY_CREATE)</option>
+              <option value="ADMIN_UPDATE_USER">Admin o'zgarishi (ADMIN_UPDATE_USER)</option>
+            </select>
+          </div>
+
+          {/* Table */}
           <div className="data-table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Vaqt</th>
-                  <th>Amal (Action)</th>
-                  <th>Ob'ekt turi</th>
-                  <th>ID</th>
-                  <th>Foydalanuvchi</th>
+                  <th style={{ minWidth: '130px' }}>Vaqt</th>
+                  <th style={{ minWidth: '180px' }}>Foydalanuvchi</th>
+                  <th style={{ minWidth: '150px' }}>Harakat (Amal)</th>
+                  <th style={{ minWidth: '200px' }}>Qurilma / IP</th>
                   <th>Tafsilotlar</th>
+                  <th style={{ textAlign: 'center', minWidth: '90px' }}>Admin amali</th>
                 </tr>
               </thead>
               <tbody>
-                {auditLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td style={{ fontSize: '0.8rem', color: '#6B7280' }}>
-                      {new Date(log.created_at).toLocaleString('uz-UZ')}
-                    </td>
-                    <td style={{ fontWeight: 700, color: '#0F382A' }}>{log.action}</td>
-                    <td>{log.entity_type}</td>
-                    <td>#{log.entity_id || '-'}</td>
-                    <td>{log.user ? `${log.user.first_name} (${log.user.phone})` : 'Tizim'}</td>
-                    <td style={{ fontSize: '0.8rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {log.details || '-'}
+                {auditLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#9CA3AF' }}>
+                      Hech qanday harakat qaydnomasi topilmadi.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  auditLogs.map((log) => {
+                    const isMobileDevice =
+                      (log.details || '').toLowerCase().includes('mobil') ||
+                      (log.details || '').toLowerCase().includes('iphone') ||
+                      (log.details || '').toLowerCase().includes('android');
+
+                    let badgeColor = '#0F382A';
+                    let badgeBg = '#ECFDF5';
+                    if (log.action.includes('LOGIN') || log.action.includes('REGISTER')) {
+                      badgeColor = '#059669';
+                      badgeBg = '#ECFDF5';
+                    } else if (log.action.includes('VIEW')) {
+                      badgeColor = '#2563EB';
+                      badgeBg = '#EFF6FF';
+                    } else if (log.action.includes('FAVORITE')) {
+                      badgeColor = '#DC2626';
+                      badgeBg = '#FEF2F2';
+                    } else if (log.action.includes('CHAT')) {
+                      badgeColor = '#7C3AED';
+                      badgeBg = '#F5F3FF';
+                    } else if (log.action.includes('PROPERTY')) {
+                      badgeColor = '#D97706';
+                      badgeBg = '#FFFBEB';
+                    }
+
+                    return (
+                      <tr key={log.id}>
+                        <td style={{ fontSize: '0.8rem', color: '#6B7280', whiteSpace: 'nowrap' }}>
+                          {new Date(log.created_at).toLocaleString('uz-UZ')}
+                        </td>
+                        <td>
+                          {log.user ? (
+                            <div>
+                              <div style={{ fontWeight: 700, color: '#111827' }}>
+                                {log.user.first_name} {log.user.last_name}
+                              </div>
+                              <div style={{ fontSize: '0.78rem', color: '#6B7280' }}>
+                                {log.user.phone} • <span style={{ textTransform: 'capitalize', color: '#10B981', fontWeight: 600 }}>{log.user.role}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ color: '#9CA3AF', fontStyle: 'italic' }}>Tizim / Mehmon</span>
+                          )}
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              color: badgeColor,
+                              backgroundColor: badgeBg,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {log.action}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}>
+                            {isMobileDevice ? (
+                              <Smartphone size={16} color="#10B981" />
+                            ) : (
+                              <Laptop size={16} color="#3B82F6" />
+                            )}
+                            <span style={{ color: '#374151', fontWeight: 500 }}>
+                              {log.details && log.details.includes('device')
+                                ? (() => {
+                                    try {
+                                      const p = JSON.parse(log.details);
+                                      return p.device || 'Noma\'lum';
+                                    } catch {
+                                      return log.ip_address || 'Lokal';
+                                    }
+                                  })()
+                                : log.ip_address || '127.0.0.1'}
+                            </span>
+                          </div>
+                          {log.ip_address && (
+                            <div style={{ fontSize: '0.72rem', color: '#9CA3AF', marginTop: '2px' }}>
+                              IP: {log.ip_address}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ fontSize: '0.82rem', maxWidth: '320px', color: '#4B5563' }}>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {log.details || (log.entity_id ? `Ob'ekt ID: #${log.entity_id}` : '-')}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAuditLog(log.id)}
+                            disabled={deletingLogId === log.id}
+                            className="btn btn-danger"
+                            title="Yozuvni o'chirish (Faqat admin huquqi)"
+                            style={{ padding: '6px 10px', fontSize: '0.75rem', borderRadius: '8px' }}
+                          >
+                            <Trash2 size={14} />
+                            <span>O'chirish</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

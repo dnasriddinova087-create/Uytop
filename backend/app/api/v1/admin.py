@@ -265,12 +265,26 @@ def get_audit_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     action: Optional[str] = None,
+    search: Optional[str] = None,
+    user_id: Optional[int] = None,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     query = db.query(AuditLog).options(joinedload(AuditLog.user))
     if action:
         query = query.filter(AuditLog.action == action)
+    if user_id:
+        query = query.filter(AuditLog.user_id == user_id)
+    if search:
+        search_pattern = f"%{search.strip()}%"
+        query = query.outerjoin(User, AuditLog.user_id == User.id).filter(
+            (AuditLog.action.ilike(search_pattern)) |
+            (AuditLog.details.ilike(search_pattern)) |
+            (AuditLog.ip_address.ilike(search_pattern)) |
+            (User.first_name.ilike(search_pattern)) |
+            (User.last_name.ilike(search_pattern)) |
+            (User.phone.ilike(search_pattern))
+        )
 
     total = query.count()
     items = query.order_by(AuditLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
@@ -292,6 +306,30 @@ def get_audit_logs(
         )
 
     return AuditLogListResponse(items=resp_items, total=total)
+
+@router.delete("/audit-logs/{log_id}")
+def delete_audit_log(
+    log_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin can delete a specific user activity/audit log."""
+    log_entry = db.query(AuditLog).filter(AuditLog.id == log_id).first()
+    if not log_entry:
+        raise HTTPException(status_code=404, detail="Audit yozuvi topilmadi")
+    db.delete(log_entry)
+    db.commit()
+    return {"message": "Audit yozuvi muvaffaqiyatli o'chirildi", "id": log_id}
+
+@router.delete("/audit-logs")
+def clear_audit_logs(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin can clear all user activity/audit logs."""
+    count = db.query(AuditLog).delete()
+    db.commit()
+    return {"message": f"Barcha foydalanuvchi harakat jurnallari ({count} ta) o'chirildi", "count": count}
 
 @router.delete("/properties/{property_id}")
 def admin_delete_property(

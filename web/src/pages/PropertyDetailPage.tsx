@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { AmenityBadge, ALL_AMENITIES } from '../components/AmenityBadge';
 import { InteractiveMap } from '../components/InteractiveMap';
 import { LoadingSpinner } from '../components/LoadingSkeleton';
+import { trackUserActivity } from '../services/activityTracker';
 
 export const PropertyDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +39,11 @@ export const PropertyDetailPage: React.FC = () => {
         const data = await api.getProperty(Number(id));
         setProperty(data);
         setIsFav(data.is_favorited || false);
+        trackUserActivity('PROPERTY_VIEW', 'property', data.id, {
+          title: data.title,
+          price: data.price,
+          region: data.region,
+        });
       } catch (err) {
         console.error('Failed to load property', err);
       } finally {

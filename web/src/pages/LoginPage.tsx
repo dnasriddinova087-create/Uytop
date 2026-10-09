@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Home, Eye, EyeOff, Lock, Phone, Shield, UserCheck } from 'lucide-react';
+import { Eye, EyeOff, Lock, Phone, Shield, UserCheck } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { UyTopHouseIcon } from '../components/UyTopHouseIcon';
+import { trackUserActivity } from '../services/activityTracker';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -52,6 +54,7 @@ export const LoginPage: React.FC = () => {
     try {
       const res = await api.login({ identifier: identifier.trim(), password });
       login(res.access_token, res.refresh_token, res.user);
+      trackUserActivity('USER_LOGIN', 'user', res.user.id, { role: res.user.role });
 
       if (res.user.role === 'admin') {
         navigate('/admin');
@@ -73,6 +76,7 @@ export const LoginPage: React.FC = () => {
     try {
       const res = await api.login({ identifier: 'admin@uytop.uz', password: 'dilfuza.4002' });
       login(res.access_token, res.refresh_token, res.user);
+      trackUserActivity('USER_LOGIN', 'user', res.user.id, { role: 'admin' });
       navigate('/admin');
     } catch (err: any) {
       setError(err.message || 'Admin sifatida kirishda xatolik');
@@ -99,8 +103,8 @@ export const LoginPage: React.FC = () => {
         boxShadow: 'var(--shadow-xl)',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '1.6rem', fontWeight: 800, color: '#0F382A' }}>
-            <Home size={30} color="#0F382A" />
+          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '1.6rem', fontWeight: 800, color: '#0F382A' }}>
+            <UyTopHouseIcon size={32} color="#10B981" />
             <span>Uy<span style={{ color: '#10B981' }}>Top</span></span>
           </Link>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', marginTop: '0.75rem' }}>

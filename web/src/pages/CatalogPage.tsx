@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { PropertyCard } from '../components/PropertyCard';
 import { InteractiveMap } from '../components/InteractiveMap';
 import { PropertyCardSkeleton } from '../components/LoadingSkeleton';
+import { trackUserActivity } from '../services/activityTracker';
 
 export const CatalogPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -70,6 +71,15 @@ export const CatalogPage: React.FC = () => {
       const res = await api.getProperties(params);
       setProperties(res.items);
       setTotal(res.total);
+      if (searchQuery || region || propertyType || rentType || rooms) {
+        trackUserActivity('CATALOG_SEARCH', 'catalog', undefined, {
+          q: searchQuery || undefined,
+          region: region || undefined,
+          type: propertyType || undefined,
+          rent: rentType || undefined,
+          rooms: rooms || undefined,
+        });
+      }
     } catch (err) {
       console.error('Failed to fetch properties', err);
     } finally {
