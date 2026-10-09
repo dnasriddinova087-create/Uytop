@@ -64,7 +64,7 @@ def get_all_users(
     is_verified: Optional[bool] = None,
     sort_by: Optional[str] = Query("newest", pattern="^(newest|oldest|name_asc|name_desc)$"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=100),
+    page_size: int = Query(100, ge=1, le=500),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
@@ -138,6 +138,45 @@ def update_user_status(
     )
 
     return UserResponse.model_validate(target_user)
+
+@router.delete("/users/{user_id}")
+def admin_delete_user(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Permanently delete a registered user (client or broker) by Admin. Persists until admin deletes."""
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+
+    if target_user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Administrator o'z akkauntini o'chira olmaydi")
+
+    user_info = f"{target_user.first_name} {target_user.last_name} ({target_user.phone})"
+
+    # Disassociate/delete chat messages and conversations to avoid foreign key issues
+    db.query(Message).filter(Message.sender_id == target_user.id).delete(synchronize_session=False)
+    db.query(Conversation).filter(
+        (Conversation.client_id == target_user.id) | (Conversation.broker_id == target_user.id)
+    ).delete(synchronize_session=False)
+
+    # Delete reports filed by user
+    db.query(Report).filter(Report.reporter_id == target_user.id).delete(synchronize_session=False)
+
+    db.delete(target_user)
+    db.commit()
+
+    log_audit(
+        db,
+        action="ADMIN_DELETE_USER",
+        entity_type="user",
+        user_id=admin.id,
+        entity_id=user_id,
+        details={"deleted_user": user_info}
+    )
+
+    return {"message": f"Foydalanuvchi ({user_info}) tizimdan muvaffaqiyatli o'chirildi", "id": user_id}
 
 @router.get("/properties", response_model=List[PropertyResponse])
 def get_admin_properties(

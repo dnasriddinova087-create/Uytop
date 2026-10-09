@@ -32,6 +32,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [clientSearch, setClientSearch] = useState('');
   const [clientFilterStatus, setClientFilterStatus] = useState<'all' | 'active' | 'blocked'>('all');
   const [clientSort, setClientSort] = useState<'newest' | 'oldest' | 'name_asc' | 'name_desc'>('newest');
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
 
   // Property filters
   const [propertySearch, setPropertySearch] = useState('');
@@ -225,6 +226,27 @@ export const AdminDashboardPage: React.FC = () => {
       fetchBrokers();
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
+    }
+  };
+
+  const handleDeleteUser = async (targetUser: User) => {
+    const roleName = targetUser.role === 'makler' ? 'makler' : 'mijoz';
+    const confirmMsg = `Rostdan ham ushbu ${roleName}ni (${targetUser.first_name} ${targetUser.last_name}, tel: ${targetUser.phone}) tizimdan butunlay o'chirmoqchimisiz?\n\nDiqqat: Yangi ro'yxatdan o'tgan mijoz va maklerlar bazada doimiy saqlanadi va faqat administrator o'chirgan taqdirdagina tizimdan o'chiriladi.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingUserId(targetUser.id);
+    try {
+      await api.adminDeleteUser(targetUser.id);
+      await Promise.all([
+        fetchBrokers(),
+        fetchClients(),
+        fetchOverview(),
+        fetchAuditLogs(),
+      ]);
+    } catch (err: any) {
+      alert("Xatolik: " + err.message);
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -697,6 +719,22 @@ export const AdminDashboardPage: React.FC = () => {
                           >
                             {b.is_active ? <><Lock size={12} /> Bloklash</> : <><Unlock size={12} /> Ochish</>}
                           </button>
+
+                          <button
+                            type="button"
+                            disabled={deletingUserId === b.id}
+                            onClick={() => handleDeleteUser(b)}
+                            className="btn btn-outline"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '0.75rem',
+                              color: '#DC2626',
+                              borderColor: '#FECACA',
+                            }}
+                            title="Maklerni tizimdan butunlay o'chirish"
+                          >
+                            <Trash2 size={12} /> {deletingUserId === b.id ? "O'chirilmoqda..." : "O'chirish"}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -805,19 +843,37 @@ export const AdminDashboardPage: React.FC = () => {
                         {new Date(c.created_at).toLocaleDateString('uz-UZ')}
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleUserBlock(c)}
-                          className="btn btn-outline"
-                          style={{
-                            padding: '4px 8px',
-                            fontSize: '0.75rem',
-                            color: c.is_active ? '#DC2626' : '#059669',
-                            borderColor: c.is_active ? '#FECACA' : '#A7F3D0',
-                          }}
-                        >
-                          {c.is_active ? <><Lock size={12} /> Bloklash</> : <><Unlock size={12} /> Ochish</>}
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleUserBlock(c)}
+                            className="btn btn-outline"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '0.75rem',
+                              color: c.is_active ? '#DC2626' : '#059669',
+                              borderColor: c.is_active ? '#FECACA' : '#A7F3D0',
+                            }}
+                          >
+                            {c.is_active ? <><Lock size={12} /> Bloklash</> : <><Unlock size={12} /> Ochish</>}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={deletingUserId === c.id}
+                            onClick={() => handleDeleteUser(c)}
+                            className="btn btn-outline"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '0.75rem',
+                              color: '#DC2626',
+                              borderColor: '#FECACA',
+                            }}
+                            title="Mijozni tizimdan butunlay o'chirish"
+                          >
+                            <Trash2 size={12} /> {deletingUserId === c.id ? "O'chirilmoqda..." : "O'chirish"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

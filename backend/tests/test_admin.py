@@ -71,3 +71,37 @@ def test_user_activity_recording_and_admin_delete(client, auth_headers, client_u
     # Non-admin cannot delete audit logs
     del_res_forbidden = client.delete(f"/api/v1/admin/audit-logs/{log_id}", headers=auth_headers("client"))
     assert del_res_forbidden.status_code == status.HTTP_403_FORBIDDEN
+
+def test_admin_delete_user(client, auth_headers):
+    # 1. Register a new client user
+    reg_res = client.post("/api/v1/auth/register", json={
+        "first_name": "Test",
+        "last_name": "DeleteMe",
+        "phone": "+998909998877",
+        "role": "mijoz",
+        "password": "Password123!",
+        "password_confirm": "Password123!",
+        "agree_terms": True
+    })
+    assert reg_res.status_code == status.HTTP_201_CREATED
+    new_user_id = reg_res.json()["user"]["id"]
+
+    # 2. Check admin can find the new user in user list
+    users_res = client.get("/api/v1/admin/users", params={"search": "+998909998877"}, headers=auth_headers("admin"))
+    assert users_res.status_code == status.HTTP_200_OK
+    assert any(u["id"] == new_user_id for u in users_res.json())
+
+    # 3. Non-admin cannot delete the user
+    forbid_res = client.delete(f"/api/v1/admin/users/{new_user_id}", headers=auth_headers("client"))
+    assert forbid_res.status_code == status.HTTP_403_FORBIDDEN
+
+    # 4. Admin deletes the user
+    del_res = client.delete(f"/api/v1/admin/users/{new_user_id}", headers=auth_headers("admin"))
+    assert del_res.status_code == status.HTTP_200_OK
+    assert del_res.json()["id"] == new_user_id
+
+    # 5. User is gone from admin user list
+    users_after = client.get("/api/v1/admin/users", params={"search": "+998909998877"}, headers=auth_headers("admin"))
+    assert users_after.status_code == status.HTTP_200_OK
+    assert not any(u["id"] == new_user_id for u in users_after.json())
+

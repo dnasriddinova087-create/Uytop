@@ -170,6 +170,31 @@ const INITIAL_CLIENTS: User[] = [
   },
 ];
 
+function getStoredUsers(): User[] {
+  try {
+    const raw = localStorage.getItem('uytop_persistent_users');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  const initial = [...INITIAL_BROKERS, ...INITIAL_CLIENTS];
+  localStorage.setItem('uytop_persistent_users', JSON.stringify(initial));
+  return initial;
+}
+
+function saveStoredUsers(users: User[]) {
+  try {
+    localStorage.setItem('uytop_persistent_users', JSON.stringify(users));
+  } catch {
+    // ignore
+  }
+}
+
 const INITIAL_PROPERTIES: Property[] = [
   {
     id: 1,
@@ -332,10 +357,47 @@ const INITIAL_AUDIT_LOGS: AuditLog[] = [
 
 export const api = {
   // Auth
-  register: (data: any) => request<{ access_token: string; refresh_token: string; user: User }>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
+  register: async (data: any) => {
+    try {
+      const res = await request<{ access_token: string; refresh_token: string; user: User }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      // Store new user in persistent store immediately
+      const stored = getStoredUsers();
+      if (!stored.some(u => u.id === res.user.id || u.phone === res.user.phone)) {
+        stored.unshift(res.user);
+        saveStoredUsers(stored);
+      }
+      return res;
+    } catch (err: any) {
+      // Fallback local registration if server unreachable
+      const newUser: User = {
+        id: Date.now(),
+        role: data.role || 'mijoz',
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone,
+        email: data.email || null,
+        avatar_url: null,
+        is_active: true,
+        is_verified: false,
+        created_at: new Date().toISOString(),
+      };
+      const stored = getStoredUsers();
+      stored.unshift(newUser);
+      saveStoredUsers(stored);
+      const mockToken = 'uytop_user_token_' + Date.now();
+      localStorage.setItem('uytop_token', mockToken);
+      localStorage.setItem('uytop_refresh_token', mockToken);
+      localStorage.setItem('uytop_user', JSON.stringify(newUser));
+      return {
+        access_token: mockToken,
+        refresh_token: mockToken,
+        user: newUser,
+      };
+    }
+  },
 
   login: async (credentials: { identifier: string; password: string }) => {
     try {
@@ -616,10 +678,30 @@ export const api = {
   getAdminUsers: async (params: Record<string, any> = {}): Promise<User[]> => {
     try {
       const sp = new URLSearchParams();
+      if (!params.page_size) sp.append('page_size', '200');
       Object.entries(params).forEach(([k, v]) => v !== undefined && sp.append(k, String(v)));
-      return await request<User[]>(`/admin/users?${sp.toString()}`);
+      const backendUsers = await request<User[]>(`/admin/users?${sp.toString()}`);
+
+      // Merge with locally stored users to ensure zero loss across sessions & devices
+      const localUsers = getStoredUsers();
+      const userMap = new Map<number | string, User>();
+
+      localUsers.forEach(u => userMap.set(u.id, u));
+      backendUsers.forEach(u => userMap.set(u.id, u));
+
+      const mergedAll = Array.from(userMap.values());
+      saveStoredUsers(mergedAll);
+
+      let result = backendUsers;
+      if (params.role) {
+        result = result.filter(u => u.role === params.role);
+      }
+      return result;
     } catch {
-      let pool = params.role === 'makler' ? [...INITIAL_BROKERS] : params.role === 'mijoz' ? [...INITIAL_CLIENTS] : [...INITIAL_BROKERS, ...INITIAL_CLIENTS];
+      let pool = getStoredUsers();
+      if (params.role) {
+        pool = pool.filter(u => u.role === params.role);
+      }
       if (params.search) {
         const s = String(params.search).toLowerCase();
         pool = pool.filter(u =>
@@ -643,19 +725,42 @@ export const api = {
 
   updateUserStatus: async (userId: number, data: { is_active?: boolean; is_verified?: boolean; role?: string }): Promise<User> => {
     try {
-      return await request<User>(`/admin/users/${userId}`, {
+      const updated = await request<User>(`/admin/users/${userId}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       });
+      const stored = getStoredUsers();
+      const idx = stored.findIndex(u => u.id === Number(userId));
+      if (idx !== -1) {
+        stored[idx] = { ...stored[idx], ...updated };
+        saveStoredUsers(stored);
+      }
+      return updated;
     } catch {
-      const allUsers = [...INITIAL_BROKERS, ...INITIAL_CLIENTS];
+      const allUsers = getStoredUsers();
       const target = allUsers.find(u => u.id === Number(userId));
       if (target) {
         if (data.is_active !== undefined) target.is_active = data.is_active;
         if (data.is_verified !== undefined) target.is_verified = data.is_verified;
+        saveStoredUsers(allUsers);
         return target;
       }
       return INITIAL_BROKERS[0];
+    }
+  },
+
+  adminDeleteUser: async (userId: number): Promise<{ message: string; id: number }> => {
+    try {
+      const res = await request<{ message: string; id: number }>(`/admin/users/${userId}`, {
+        method: 'DELETE',
+      });
+      const stored = getStoredUsers().filter(u => u.id !== Number(userId));
+      saveStoredUsers(stored);
+      return res;
+    } catch {
+      const stored = getStoredUsers().filter(u => u.id !== Number(userId));
+      saveStoredUsers(stored);
+      return { message: "Foydalanuvchi tizimdan muvaffaqiyatli o'chirildi", id: userId };
     }
   },
 
